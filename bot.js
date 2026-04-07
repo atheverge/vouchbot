@@ -42,17 +42,30 @@ client.commands = new Map();
 const foldersPath = path.join(__dirname, 'commands');
 
 if (fs.existsSync(foldersPath)) {
-  const commandFolders = fs.readdirSync(foldersPath);
+  const items = fs.readdirSync(foldersPath);
 
-  for (const folder of commandFolders) {
-    const folderPath = path.join(foldersPath, folder);
-    const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
+  for (const item of items) {
+    const itemPath = path.join(foldersPath, item);
 
-    for (const file of commandFiles) {
-      const filePath = path.join(folderPath, file);
-      const command = require(filePath);
+    // ✅ CASE 1: Folder
+    if (fs.lstatSync(itemPath).isDirectory()) {
+      const commandFiles = fs.readdirSync(itemPath).filter(file => file.endsWith('.js'));
 
-      client.commands.set(command.data.name, command);
+      for (const file of commandFiles) {
+        const filePath = path.join(itemPath, file);
+        const command = require(filePath);
+
+        client.commands.set(command.data.name, command);
+      }
+    }
+
+    // ✅ CASE 2: Single JS file directly in /commands
+    else if (item.endsWith('.js')) {
+      const command = require(itemPath);
+
+      if (command.data) {
+        client.commands.set(command.data.name, command);
+      }
     }
   }
 } else {
