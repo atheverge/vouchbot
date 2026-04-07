@@ -198,6 +198,64 @@ async function registerCommands() {
 
   if (!fs.existsSync(basePath)) return;
 
+  const items = fs.readdirSync(basePath);
+
+  for (const item of items) {
+    const itemPath = path.join(basePath, item);
+
+    let stat;
+    try {
+      stat = fs.lstatSync(itemPath);
+    } catch (err) {
+      continue; // skip anything unreadable
+    }
+
+    // ✅ Folder
+    if (stat.isDirectory()) {
+      const files = fs.readdirSync(itemPath).filter(file => file.endsWith('.js'));
+
+      for (const file of files) {
+        const commandPath = path.join(itemPath, file);
+
+        try {
+          const command = require(commandPath);
+          if (command.data && command.data.toJSON) {
+            commands.push(command.data.toJSON());
+          }
+        } catch (err) {
+          console.log(`⚠️ Failed to load command: ${commandPath}`);
+        }
+      }
+    }
+
+    // ✅ Single JS file
+    else if (item.endsWith('.js')) {
+      try {
+        const command = require(itemPath);
+        if (command.data && command.data.toJSON) {
+          commands.push(command.data.toJSON());
+        }
+      } catch (err) {
+        console.log(`⚠️ Failed to load command: ${itemPath}`);
+      }
+    }
+  }
+
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+  await rest.put(
+    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+    { body: commands }
+  );
+
+  console.log('✅ Auto-registered slash commands');
+}
+  const commands = [];
+
+  const basePath = path.join(__dirname, 'commands');
+
+  if (!fs.existsSync(basePath)) return;
+
   const folders = fs.readdirSync(basePath);
 
   for (const folder of folders) {
@@ -240,15 +298,6 @@ const commands = [
 
   new SlashCommandBuilder().setName('tos').setDescription('View TOS')
 ];
-
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-
-(async () => {
-  await rest.put(
-    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-    { body: commands }
-  );
-})();
 
 // 🔹 INTERACTIONS (FIXED)
 client.on('interactionCreate', async interaction => {
