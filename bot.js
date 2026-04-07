@@ -42,43 +42,17 @@ client.commands = new Map();
 const foldersPath = path.join(__dirname, 'commands');
 
 if (fs.existsSync(foldersPath)) {
-  let items;
-try {
-  items = fs.readdirSync(foldersPath);
-} catch (err) {
-  console.log("⚠️ Failed to read commands folder:", err);
-  items = [];
-}
+  const commandFolders = fs.readdirSync(foldersPath);
 
-  for (const item of items) {
-    const itemPath = path.join(foldersPath, item);
+  for (const folder of commandFolders) {
+    const folderPath = path.join(foldersPath, folder);
+    const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
 
-    // ✅ CASE 1: Folder
-   let stat;
-try {
-  stat = fs.lstatSync(itemPath);
-} catch (err) {
-  continue;
-}
+    for (const file of commandFiles) {
+      const filePath = path.join(folderPath, file);
+      const command = require(filePath);
 
-if (stat.isDirectory()) {
-      const commandFiles = fs.readdirSync(itemPath).filter(file => file.endsWith('.js'));
-
-      for (const file of commandFiles) {
-        const filePath = path.join(itemPath, file);
-        const command = require(filePath);
-
-        client.commands.set(command.data.name, command);
-      }
-    }
-
-    // ✅ CASE 2: Single JS file directly in /commands
-    else if (item.endsWith('.js')) {
-      const command = require(itemPath);
-
-      if (command.data) {
-        client.commands.set(command.data.name, command);
-      }
+      client.commands.set(command.data.name, command);
     }
   }
 } else {
@@ -201,97 +175,8 @@ client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   const guild = client.guilds.cache.get(GUILD_ID);
   await guild.members.fetch();
-await registerCommands();
 });
-// 🔌 AUTO REGISTER SLASH COMMANDS (SAFE ADD)
-async function registerCommands() {
-  const commands = [];
 
-  const basePath = path.join(__dirname, 'commands');
-
-  if (!fs.existsSync(basePath)) return;
-
-  const items = fs.readdirSync(basePath);
-
-  for (const item of items) {
-    const itemPath = path.join(basePath, item);
-
-    let stat;
-    try {
-      stat = fs.lstatSync(itemPath);
-    } catch (err) {
-      continue; // skip anything unreadable
-    }
-
-    // ✅ Folder
-    if (stat.isDirectory()) {
-      const files = fs.readdirSync(itemPath).filter(file => file.endsWith('.js'));
-
-      for (const file of files) {
-        const commandPath = path.join(itemPath, file);
-
-        try {
-          const command = require(commandPath);
-          if (command.data && command.data.toJSON) {
-            commands.push(command.data.toJSON());
-          }
-        } catch (err) {
-          console.log(`⚠️ Failed to load command: ${commandPath}`);
-        }
-      }
-    }
-
-    // ✅ Single JS file
-    else if (item.endsWith('.js')) {
-      try {
-        const command = require(itemPath);
-        if (command.data && command.data.toJSON) {
-          commands.push(command.data.toJSON());
-        }
-      } catch (err) {
-        console.log(`⚠️ Failed to load command: ${itemPath}`);
-      }
-    }
-  }
-
-  const rest = new REST({ version: '10' }).setToken(TOKEN);
-
-  await rest.put(
-    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-    { body: commands }
-  );
-
-  console.log('✅ Auto-registered slash commands');
-}
-  const commands = [];
-
-  const basePath = path.join(__dirname, 'commands');
-
-  if (!fs.existsSync(basePath)) return;
-
-  const folders = fs.readdirSync(basePath);
-
-  for (const folder of folders) {
-    const folderPath = path.join(basePath, folder);
-    const files = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
-
-    for (const file of files) {
-      const command = require(path.join(folderPath, file));
-      if (command.data && command.data.toJSON) {
-        commands.push(command.data.toJSON());
-      }
-    }
-  }
-
-  const rest = new REST({ version: '10' }).setToken(TOKEN);
-
-  await rest.put(
-    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-    { body: commands }
-  );
-
-  console.log('✅ Auto-registered slash commands');
-}
 // 🔹 SLASH COMMANDS
 const commands = [
   new SlashCommandBuilder().setName('vouch').setDescription('Generate vouch'),
@@ -312,6 +197,15 @@ const commands = [
   new SlashCommandBuilder().setName('tos').setDescription('View TOS')
 ];
 
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+(async () => {
+  await rest.put(
+    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+    { body: commands }
+  );
+})();
+
 // 🔹 INTERACTIONS (FIXED)
 client.on('interactionCreate', async interaction => {
 
@@ -327,16 +221,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (!interaction.isChatInputCommand()) return;
-// 🔌 COMMAND HANDLER EXECUTION (SAFE ADD)
-const command = client.commands.get(interaction.commandName);
-if (command && command.execute) {
-  try {
-    return await command.execute(interaction, client);
-  } catch (error) {
-    console.error(error);
-    return interaction.reply({ content: '❌ Command error.', ephemeral: true });
-  }
-}
+
   if (!isStaff(interaction.member)) {
     return interaction.reply({ content: '❌ No permission.', ephemeral: true });
   }
