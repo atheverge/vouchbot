@@ -175,8 +175,39 @@ client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   const guild = client.guilds.cache.get(GUILD_ID);
   await guild.members.fetch();
+await registerCommands();
 });
+// 🔌 AUTO REGISTER SLASH COMMANDS (SAFE ADD)
+async function registerCommands() {
+  const commands = [];
 
+  const basePath = path.join(__dirname, 'commands');
+
+  if (!fs.existsSync(basePath)) return;
+
+  const folders = fs.readdirSync(basePath);
+
+  for (const folder of folders) {
+    const folderPath = path.join(basePath, folder);
+    const files = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
+
+    for (const file of files) {
+      const command = require(path.join(folderPath, file));
+      if (command.data && command.data.toJSON) {
+        commands.push(command.data.toJSON());
+      }
+    }
+  }
+
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+  await rest.put(
+    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+    { body: commands }
+  );
+
+  console.log('✅ Auto-registered slash commands');
+}
 // 🔹 SLASH COMMANDS
 const commands = [
   new SlashCommandBuilder().setName('vouch').setDescription('Generate vouch'),
