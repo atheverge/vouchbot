@@ -42,13 +42,26 @@ client.commands = new Map();
 const foldersPath = path.join(__dirname, 'commands');
 
 if (fs.existsSync(foldersPath)) {
-  const items = fs.readdirSync(foldersPath);
+  let items;
+try {
+  items = fs.readdirSync(foldersPath);
+} catch (err) {
+  console.log("⚠️ Failed to read commands folder:", err);
+  items = [];
+}
 
   for (const item of items) {
     const itemPath = path.join(foldersPath, item);
 
     // ✅ CASE 1: Folder
-    if (fs.lstatSync(itemPath).isDirectory()) {
+   let stat;
+try {
+  stat = fs.lstatSync(itemPath);
+} catch (err) {
+  continue;
+}
+
+if (stat.isDirectory()) {
       const commandFiles = fs.readdirSync(itemPath).filter(file => file.endsWith('.js'));
 
       for (const file of commandFiles) {
